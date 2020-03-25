@@ -20,11 +20,16 @@ import logging
 import os
 from collections import OrderedDict
 import torch
+import pandas as pd
+import numpy as np
+import tqdm
+import cv2
 
 import detectron2.utils.comm as comm
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import get_cfg
-from detectron2.data import MetadataCatalog
+from detectron2.structures import BoxMode
+from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.engine import DefaultTrainer, default_argument_parser, default_setup, hooks, launch
 from detectron2.evaluation import (
     CityscapesEvaluator,
@@ -111,6 +116,38 @@ class Trainer(DefaultTrainer):
         return res
 
 
+def rsna_det_dataset(subset):
+    df = pd.read_csv(f"datasets/rsna_det/annotations/{subset}.csv")
+    ids_name = np.unique(df.ImageID.values)
+    dataset_dicts = []
+    for idx, ids in tqdm.tqdm(enumerate(ids_name)):
+        record = {}
+
+        filename = f"datasets/rsna_det/{subset}/{ids}.jpg"
+        height, width = cv2.imread(filename).shape[:2]
+
+        record["file_name"] = filename
+        record["image_id"] = idx
+        record["height"] = height
+        record["width"] = width
+
+        ids_df = df[df["ImageID"] == ids]
+        objs = []
+        for _, info in ids_df.iterrows():
+            obj = {
+                "bbox": [info.XMin, info.YMin, info.XMax, info.YMax],
+                "bbox_mode": BoxMode.XYXY_ABS,
+                "category_id": 0,
+                "iscrowd": 0
+            }
+            objs.append(obj)
+
+        record["annotations"] = objs
+        dataset_dicts.append(record)
+
+    return dataset_dicts
+
+
 def setup(args):
     """
     Create configs and perform basic setups.
@@ -124,6 +161,11 @@ def setup(args):
 
 
 def main(args):
+    for subset in ["train", "val"]:
+        DatasetCatalog.register(f"rsna_det_{subset}", lambda dataset = subset: rsna_det_dataset(subset))
+        MetadataCatalog.get(f"rsna_det_{subset}").set(thing_classes=["opacity"])
+        rsna_metadata = MetadataCatalog.get(f"rsna_det_{subset}")
+
     cfg = setup(args)
 
     if args.eval_only:
