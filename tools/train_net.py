@@ -116,14 +116,14 @@ class Trainer(DefaultTrainer):
         return res
 
 
-def rsna_det_dataset(subset):
-    df = pd.read_csv(f"datasets/rsna_det/annotations/{subset}.csv")
+def rsna_det_train_dataset():
+    df = pd.read_csv(f"datasets/rsna_det/annotations/train.csv")
     ids_name = np.unique(df.ImageID.values)
     dataset_dicts = []
-    for idx, ids in tqdm.tqdm(enumerate(ids_name)):
+    for idx, ids in enumerate(ids_name):
         record = {}
 
-        filename = f"datasets/rsna_det/{subset}/{ids}.jpg"
+        filename = f"datasets/rsna_det/train/{ids}.jpg"
         height, width = cv2.imread(filename).shape[:2]
 
         record["file_name"] = filename
@@ -145,6 +145,41 @@ def rsna_det_dataset(subset):
         record["annotations"] = objs
         dataset_dicts.append(record)
 
+    print(f"DONE BUILD RSNA TRAIN with {len(ids_name)} images.")
+
+    return dataset_dicts
+
+def rsna_det_val_dataset():
+    df = pd.read_csv(f"datasets/rsna_det/annotations/val.csv")
+    ids_name = np.unique(df.ImageID.values)
+    dataset_dicts = []
+    for idx, ids in enumerate(ids_name):
+        record = {}
+
+        filename = f"datasets/rsna_det/val/{ids}.jpg"
+        height, width = cv2.imread(filename).shape[:2]
+
+        record["file_name"] = filename
+        record["image_id"] = idx
+        record["height"] = height
+        record["width"] = width
+
+        ids_df = df[df["ImageID"] == ids]
+        objs = []
+        for _, info in ids_df.iterrows():
+            obj = {
+                "bbox": [info.XMin, info.YMin, info.XMax, info.YMax],
+                "bbox_mode": BoxMode.XYXY_ABS,
+                "category_id": 0,
+                "iscrowd": 0
+            }
+            objs.append(obj)
+
+        record["annotations"] = objs
+        dataset_dicts.append(record)
+
+    print(f"DONE BUILD RSNA VAL with {len(ids_name)} images.")
+
     return dataset_dicts
 
 
@@ -161,10 +196,10 @@ def setup(args):
 
 
 def main(args):
-    for subset in ["train", "val"]:
-        DatasetCatalog.register(f"rsna_det_{subset}", lambda dataset = subset: rsna_det_dataset(subset))
-        MetadataCatalog.get(f"rsna_det_{subset}").set(thing_classes=["opacity"])
-        rsna_metadata = MetadataCatalog.get(f"rsna_det_{subset}")
+    DatasetCatalog.register(f"rsna_det_train", rsna_det_train_dataset)
+    MetadataCatalog.get(f"rsna_det_train").set(thing_classes=["opacity"], evaluator_type="coco")
+    DatasetCatalog.register(f"rsna_det_val", rsna_det_val_dataset)
+    MetadataCatalog.get(f"rsna_det_val").set(thing_classes=["opacity"], evaluator_type="coco")
 
     cfg = setup(args)
 
