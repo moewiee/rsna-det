@@ -182,6 +182,76 @@ def rsna_det_val_dataset():
 
     return dataset_dicts
 
+def rsna_det_vinbdi_test_dataset():
+    df = pd.read_csv(f"datasets/rsna_det/annotations/vinbdi_test_v2.csv")
+    ids_name = np.unique(df.ImageID.values)
+    dataset_dicts = []
+    for idx, ids in enumerate(ids_name):
+        record = {}
+
+        filename = f"datasets/rsna_det/vinbdi_test_v2/{ids}.jpg"
+        height, width = cv2.imread(filename).shape[:2]
+
+        record["file_name"] = filename
+        record["image_id"] = idx
+        record["height"] = height
+        record["width"] = width
+
+        ids_df = df[df["ImageID"] == ids]
+        objs = []
+        for _, info in ids_df.iterrows():
+            obj = {
+                "bbox": [info.XMin, info.YMin, info.XMax, info.YMax],
+                "bbox_mode": BoxMode.XYXY_ABS,
+                "category_id": 0,
+                "iscrowd": 0
+            }
+            objs.append(obj)
+
+        record["annotations"] = objs
+        dataset_dicts.append(record)
+
+    print(f"DONE BUILD VINBDI TEST with {len(ids_name)} images.")
+
+    return dataset_dicts
+
+def rsna_det_vinbdi_train_dataset():
+    df = pd.read_csv(f"datasets/rsna_det/annotations/vinbdi_train_v2.csv")
+    df1 = pd.read_csv(f"datasets/rsna_det/annotations/train.csv")
+    df2 = pd.read_csv(f"datasets/rsna_det/annotations/val.csv")
+    df1.drop(['Source', 'Confidence', 'IsOccluded', 'IsTruncated', 'IsGroupOf', 'IsDepiction', 'IsInside'], axis=1, inplace=True)
+    df2.drop(['Source', 'Confidence', 'IsOccluded', 'IsTruncated', 'IsGroupOf', 'IsDepiction', 'IsInside'], axis=1, inplace=True)
+    df = pd.concat([df, df1, df2])
+    ids_name = np.unique(df.ImageID.values)
+    dataset_dicts = []
+    for idx, ids in enumerate(ids_name):
+        record = {}
+
+        filename = f"datasets/rsna_det/vinbdi_train_v2/{ids}.jpg"
+        height, width = cv2.imread(filename).shape[:2]
+
+        record["file_name"] = filename
+        record["image_id"] = idx
+        record["height"] = height
+        record["width"] = width
+
+        ids_df = df[df["ImageID"] == ids]
+        objs = []
+        for _, info in ids_df.iterrows():
+            obj = {
+                "bbox": [info.XMin, info.YMin, info.XMax, info.YMax],
+                "bbox_mode": BoxMode.XYXY_ABS,
+                "category_id": 0,
+                "iscrowd": 0
+            }
+            objs.append(obj)
+
+        record["annotations"] = objs
+        dataset_dicts.append(record)
+
+    print(f"DONE BUILD VINBDI TRAIN with {len(ids_name)} images.")
+
+    return dataset_dicts
 
 def setup(args):
     """
@@ -200,6 +270,10 @@ def main(args):
     MetadataCatalog.get(f"rsna_det_train").set(thing_classes=["opacity"], evaluator_type="coco")
     DatasetCatalog.register(f"rsna_det_val", rsna_det_val_dataset)
     MetadataCatalog.get(f"rsna_det_val").set(thing_classes=["opacity"], evaluator_type="coco")
+    DatasetCatalog.register(f"rsna_det_vinbdi_train", rsna_det_vinbdi_train_dataset)
+    MetadataCatalog.get(f"rsna_det_vinbdi_train").set(thing_classes=["opacity"], evaluator_type="coco")
+    DatasetCatalog.register(f"rsna_det_vinbdi_test", rsna_det_vinbdi_test_dataset)
+    MetadataCatalog.get(f"rsna_det_vinbdi_test").set(thing_classes=["opacity"], evaluator_type="coco")
 
     cfg = setup(args)
 
